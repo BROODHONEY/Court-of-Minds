@@ -5,7 +5,7 @@
  * Conducts 1-5 debate rounds, presents context to models, parses exchanges,
  * calculates disagreement levels, and implements early termination on convergence.
  * 
- * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 7.3
+ * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 7.3, 9.2, 9.5
  */
 
 import {
@@ -17,6 +17,7 @@ import {
   DebateExchange,
   Query
 } from '../models/types.js';
+import { errorLogger } from '../utils/errorLogger.js';
 
 /**
  * Configuration for debate orchestration
@@ -267,6 +268,8 @@ export class DebateOrchestrator implements IDebateOrchestrator {
    * - 4.5: Conducts 1-5 debate rounds
    * - 4.6: Assesses disagreement after each round
    * - 7.3: Limits responses to 500 tokens
+   * - 9.2: Excludes failed models from subsequent rounds
+   * - 9.5: Logs detailed error information
    * 
    * @param query The original user query
    * @param responses Initial model responses
@@ -283,23 +286,55 @@ export class DebateOrchestrator implements IDebateOrchestrator {
     const startTime = Date.now();
     const rounds: DebateRound[] = [];
     
+    errorLogger.logInfo(
+      'DebateOrchestrator',
+      `Starting debate with ${models.length} models`,
+      {
+        queryId: query.id,
+        modelCount: models.length,
+        modelIds: models.map(m => m.id),
+      },
+      query.id
+    );
+    
     // Validate inputs
     if (responses.length < 2) {
-      throw new Error('At least 2 responses required for debate');
+      const error = 'At least 2 responses required for debate';
+      errorLogger.logError('DebateOrchestrator', error, { queryId: query.id }, query.id);
+      throw new Error(error);
     }
     
     if (models.length !== responses.length) {
-      throw new Error('Number of models must match number of responses');
+      const error = 'Number of models must match number of responses';
+      errorLogger.logError(
+        'DebateOrchestrator',
+        error,
+        { queryId: query.id, modelCount: models.length, responseCount: responses.length },
+        query.id
+      );
+      throw new Error(error);
     }
     
     // Create a map of model ID to model for easy lookup
     const modelMap = new Map(models.map(m => [m.id, m]));
     
-    // Track active models (models that haven't failed)
+    // Track active models (models that haven't failed) - Requirement 9.2
     let activeModels = new Set(models.map(m => m.id));
     
     // Conduct debate rounds (Requirement 4.5: 1-5 rounds)
     for (let roundNum = 1; roundNum <= this.config.maxRounds; roundNum++) {
+      errorLogger.logInfo(
+        'DebateOrchestrator',
+        `Starting debate round ${roundNum}`,
+        {
+          queryId: query.id,
+          roundNumber: roundNum,
+          activeModelCount: activeModels.size,
+          activeModels: Array.from(activeModels),
+        },
+        query.id
+      );
+      
       const round = await this.conductRound(
         roundNum,
         query,
@@ -312,9 +347,33 @@ export class DebateOrchestrator implements IDebateOrchestrator {
       
       rounds.push(round);
       
+      errorLogger.logInfo(
+        'DebateOrchestrator',
+        `Completed debate round ${roundNum}`,
+        {
+          queryId: query.id,
+          roundNumber: roundNum,
+          exchangeCount: round.exchanges.length,
+          disagreementLevel: round.disagreementLevel,
+          activeModelCount: activeModels.size,
+        },
+        query.id
+      );
+      
       // Check for early termination (Requirement 4.6: convergence detection)
       if (roundNum >= this.config.minRounds && 
           round.disagreementLevel < this.config.convergenceThreshold) {
+        errorLogger.logInfo(
+          'DebateOrchestrator',
+          `Early termination: convergence achieved`,
+          {
+            queryId: query.id,
+            roundNumber: roundNum,
+            disagreementLevel: round.disagreementLevel,
+            threshold: this.config.convergenceThreshold,
+          },
+          query.id
+        );
         break;
       }
     }
@@ -324,6 +383,19 @@ export class DebateOrchestrator implements IDebateOrchestrator {
     // Calculate final convergence score (inverse of final disagreement)
     const finalDisagreement = rounds[rounds.length - 1]?.disagreementLevel || 1;
     const convergenceScore = 1 - finalDisagreement;
+    
+    errorLogger.logInfo(
+      'DebateOrchestrator',
+      `Debate completed`,
+      {
+        queryId: query.id,
+        totalRounds: rounds.length,
+        convergenceScore,
+        duration,
+        finalActiveModels: activeModels.size,
+      },
+      query.id
+    );
     
     return {
       rounds,
@@ -384,8 +456,17 @@ export class DebateOrchestrator implements IDebateOrchestrator {
         
         // Enforce token limit
         if (response.tokens > this.config.maxTokens) {
-          console.warn(
-            `Model ${model.id} exceeded token limit: ${response.tokens} > ${this.config.maxTokens}`
+          errorLogger.logWarning(
+            'DebateOrchestrator',
+            `Model ${model.id} exceeded token limit: ${response.tokens} > ${this.config.maxTokens}`,
+            {
+              roundNumber,
+              modelId: model.id,
+              tokens: response.tokens,
+              maxTokens: this.config.maxTokens,
+            },
+            undefined,
+            model.id
           );
         }
         
@@ -396,7 +477,18 @@ export class DebateOrchestrator implements IDebateOrchestrator {
       } catch (error) {
         // Remove failed model from active set (Requirement 9.2: debate failure isolation)
         activeModels.delete(model.id);
-        console.error(`Model ${model.id} failed in round ${roundNumber}:`, error);
+        
+        errorLogger.logError(
+          'DebateOrchestrator',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            roundNumber,
+            modelId: model.id,
+          },
+          undefined,
+          model.id
+        );
+        
         return null;
       }
     });

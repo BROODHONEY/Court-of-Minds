@@ -5,7 +5,7 @@
  * Collects final proposals, analyzes similarity, identifies majority agreement,
  * synthesizes hybrid solutions when needed, and generates rationale.
  * 
- * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 7.4
+ * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 7.4, 9.5
  */
 
 import {
@@ -17,6 +17,7 @@ import {
   Query,
   ModelResponse
 } from '../models/types.js';
+import { errorLogger } from '../utils/errorLogger.js';
 
 /**
  * Configuration for consensus building
@@ -343,6 +344,7 @@ export class ConsensusBuilder implements IConsensusBuilder {
    * - 5.5: Synthesizes hybrid solution if no majority
    * - 5.6: Presents final solution with supporting rationale
    * - 7.4: Completes within 60 seconds
+   * - 9.5: Logs detailed error information
    * 
    * @param query The original user query
    * @param debate Debate results from DebateOrchestrator
@@ -356,6 +358,18 @@ export class ConsensusBuilder implements IConsensusBuilder {
   ): Promise<ConsensusResult> {
     const startTime = Date.now();
     
+    errorLogger.logInfo(
+      'ConsensusBuilder',
+      `Starting consensus building with ${models.length} models`,
+      {
+        queryId: query.id,
+        modelCount: models.length,
+        debateRounds: debate.rounds.length,
+        convergenceScore: debate.convergenceScore,
+      },
+      query.id
+    );
+    
     // Set up timeout (Requirement 7.4: 60 seconds)
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Consensus timeout exceeded')), this.config.timeout);
@@ -367,12 +381,37 @@ export class ConsensusBuilder implements IConsensusBuilder {
         timeoutPromise
       ]);
       
+      const duration = Date.now() - startTime;
+      errorLogger.logInfo(
+        'ConsensusBuilder',
+        `Consensus building completed successfully`,
+        {
+          queryId: query.id,
+          agreementLevel: result.agreementLevel,
+          confidence: result.finalSolution.confidence,
+          duration,
+        },
+        query.id
+      );
+      
       return result;
     } catch (error) {
       if (error instanceof Error && error.message === 'Consensus timeout exceeded') {
-        // Return a fallback consensus result
+        errorLogger.logWarning(
+          'ConsensusBuilder',
+          'Consensus timeout - returning fallback consensus',
+          { queryId: query.id, timeout: this.config.timeout },
+          query.id
+        );
         return this.createFallbackConsensus(query, debate, models, startTime);
       }
+      
+      errorLogger.logError(
+        'ConsensusBuilder',
+        error instanceof Error ? error : new Error(String(error)),
+        { queryId: query.id, modelCount: models.length },
+        query.id
+      );
       throw error;
     }
   }
@@ -470,7 +509,13 @@ export class ConsensusBuilder implements IConsensusBuilder {
         const response = await model.adapter.generateResponse(prompt, context);
         return parseConsensusResponse(response.text, model.id);
       } catch (error) {
-        console.error(`Model ${model.id} failed during consensus:`, error);
+        errorLogger.logError(
+          'ConsensusBuilder',
+          error instanceof Error ? error : new Error(String(error)),
+          { modelId: model.id },
+          undefined,
+          model.id
+        );
         // Return a fallback proposal
         return {
           modelId: model.id,
@@ -539,7 +584,13 @@ export class ConsensusBuilder implements IConsensusBuilder {
         const responseUpper = response.text.toUpperCase();
         return responseUpper.includes('YES');
       } catch (error) {
-        console.error(`Model ${model.id} failed during validation:`, error);
+        errorLogger.logError(
+          'ConsensusBuilder',
+          error instanceof Error ? error : new Error(String(error)),
+          { modelId: model.id, phase: 'validation' },
+          undefined,
+          model.id
+        );
         return false;
       }
     });

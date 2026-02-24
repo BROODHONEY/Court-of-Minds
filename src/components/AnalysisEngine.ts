@@ -4,7 +4,7 @@
  * Identifies similarities, differences, and patterns across model responses.
  * Implements semantic similarity analysis to find common themes and unique approaches.
  * 
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 9.5
  */
 
 import {
@@ -15,6 +15,7 @@ import {
   Difference,
   DifferenceType
 } from '../models/types';
+import { errorLogger } from '../utils/errorLogger.js';
 
 /**
  * Interface for the Analysis Engine component
@@ -174,6 +175,12 @@ export class AnalysisEngine implements IAnalysisEngine {
   async analyze(responses: ModelResponse[]): Promise<AnalysisReport> {
     const startTime = Date.now();
     
+    errorLogger.logInfo(
+      'AnalysisEngine',
+      `Starting analysis of ${responses.length} responses`,
+      { responseCount: responses.length, modelIds: responses.map(r => r.modelId) }
+    );
+    
     // Set up timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Analysis timeout exceeded')), this.TIMEOUT_MS);
@@ -183,13 +190,37 @@ export class AnalysisEngine implements IAnalysisEngine {
     const analysisPromise = this.performAnalysis(responses);
     
     try {
-      return await Promise.race([analysisPromise, timeoutPromise]);
+      const result = await Promise.race([analysisPromise, timeoutPromise]);
+      
+      const duration = Date.now() - startTime;
+      errorLogger.logInfo(
+        'AnalysisEngine',
+        `Analysis completed successfully in ${duration}ms`,
+        {
+          responseCount: responses.length,
+          themesFound: result.commonThemes.length,
+          differencesFound: result.differences.length,
+          duration,
+        }
+      );
+      
+      return result;
     } catch (error) {
       // If timeout, return partial results
       if (error instanceof Error && error.message === 'Analysis timeout exceeded') {
-        console.warn('Analysis timeout - returning partial results');
+        errorLogger.logWarning(
+          'AnalysisEngine',
+          'Analysis timeout - returning partial results',
+          { responseCount: responses.length, timeout: this.TIMEOUT_MS }
+        );
         return this.createEmptyReport();
       }
+      
+      errorLogger.logError(
+        'AnalysisEngine',
+        error instanceof Error ? error : new Error(String(error)),
+        { responseCount: responses.length }
+      );
       throw error;
     }
   }

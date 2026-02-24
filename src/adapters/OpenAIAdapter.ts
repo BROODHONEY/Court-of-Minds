@@ -71,7 +71,14 @@ export class OpenAIAdapter extends BaseModelAdapter {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(`OpenAI API error: ${response.status} - ${JSON.stringify(error)}`);
+      const errorMessage = `OpenAI API error: ${response.status} - ${JSON.stringify(error)}`;
+      
+      // Check if it's a rate limit error
+      if (response.status === 429) {
+        throw new Error(`Rate limit exceeded: ${errorMessage}`);
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json() as {

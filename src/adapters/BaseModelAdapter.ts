@@ -2,9 +2,13 @@
  * BaseModelAdapter - Abstract base class for model adapters
  * 
  * Provides common functionality for timeout handling and error management
+ * Implements retry logic with exponential backoff and circuit breaker pattern
  */
 
 import type { ModelAdapter, ModelResponse, Context, ModelInfo } from '../models/types.js';
+import { retryWithBackoff, isRateLimitError } from '../utils/retryWithBackoff.js';
+import { errorLogger } from '../utils/errorLogger.js';
+import { circuitBreakerRegistry } from '../utils/circuitBreaker.js';
 
 export abstract class BaseModelAdapter implements ModelAdapter {
   protected timeout: number;
@@ -16,16 +20,49 @@ export abstract class BaseModelAdapter implements ModelAdapter {
   }
 
   /**
-   * Generate a response with timeout protection
+   * Generate a response with timeout protection, retry logic, and circuit breaker
+   * 
+   * Validates Requirements:
+   * - 9.4: Retry with exponential backoff for rate limits (up to 3 attempts)
+   * - 9.5: Log detailed error information
+   * - Circuit breaker for external services
    */
   async generateResponse(prompt: string, context?: Context): Promise<ModelResponse> {
     const startTime = Date.now();
+    const circuitBreaker = circuitBreakerRegistry.getBreaker(this.modelId);
 
     try {
-      const response = await this.withTimeout(
-        this.generateResponseInternal(prompt, context),
-        this.timeout
-      );
+      // Execute with circuit breaker protection
+      const response = await circuitBreaker.execute(async () => {
+        // Execute with retry logic for rate limits
+        return await retryWithBackoff(
+          async () => {
+            return await this.withTimeout(
+              this.generateResponseInternal(prompt, context),
+              this.timeout
+            );
+          },
+          {
+            maxAttempts: 3,
+            initialDelayMs: 1000,
+            backoffMultiplier: 2,
+            isRetryable: isRateLimitError,
+            onRetry: (attempt, error, delayMs) => {
+              errorLogger.logWarning(
+                'BaseModelAdapter',
+                `Retry attempt ${attempt} for model ${this.modelId} after ${delayMs}ms`,
+                {
+                  error: error.message,
+                  delayMs,
+                  attempt,
+                },
+                undefined,
+                this.modelId
+              );
+            },
+          }
+        );
+      });
 
       return {
         ...response,
@@ -34,10 +71,26 @@ export abstract class BaseModelAdapter implements ModelAdapter {
         timestamp: new Date(),
       };
     } catch (error) {
-      if (error instanceof Error && error.message === 'Timeout') {
+      const errorDetails = error instanceof Error ? error : new Error(String(error));
+      
+      // Log detailed error information (Requirement 9.5)
+      errorLogger.logError(
+        'BaseModelAdapter',
+        errorDetails,
+        {
+          modelId: this.modelId,
+          timeout: this.timeout,
+          latency: Date.now() - startTime,
+          hasContext: !!context,
+        },
+        undefined,
+        this.modelId
+      );
+      
+      if (errorDetails.message === 'Timeout') {
         throw new Error(`Model ${this.modelId} timed out after ${this.timeout}ms`);
       }
-      throw error;
+      throw errorDetails;
     }
   }
 
