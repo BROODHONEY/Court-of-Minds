@@ -9,7 +9,9 @@
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "migrate": "tsx src/db/migrations.ts",
+    "migrate:prod": "node dist/db/migrations.js"
   },
   "keywords": [
     "ai",
@@ -21,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/ws": "^8.18.1",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "pg": "^8.11.3",
     "uuid": "^9.0.1",

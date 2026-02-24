@@ -102,3 +102,25 @@ export class SessionCleanupScheduler {
     return this.intervalId !== undefined;
   }
 }
+
+/**
+ * Helper function to schedule session cleanup
+ * Creates and starts a SessionCleanupScheduler with the specified retention period
+ * 
+ * @param store The session store to clean up
+ * @param retentionDays Number of days to retain sessions (default: 30)
+ * @returns The started scheduler instance
+ */
+export function scheduleSessionCleanup(
+  store: SessionStore,
+  retentionDays: number = 30
+): SessionCleanupScheduler {
+  const scheduler = new SessionCleanupScheduler(store, {
+    retentionDays,
+    cleanupIntervalMs: DEFAULT_CLEANUP_CONFIG.cleanupIntervalMs,
+  });
+  
+  scheduler.start();
+  
+  return scheduler;
+}
