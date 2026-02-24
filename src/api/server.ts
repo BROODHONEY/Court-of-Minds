@@ -84,6 +84,9 @@ export class CourtOfMindsServer {
    * Setup Express middleware
    */
   private setupMiddleware(): void {
+    // Serve static files from public directory
+    this.app.use(express.static('public'));
+
     // Parse JSON bodies
     this.app.use(express.json());
 

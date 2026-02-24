@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Court of Minds - AI Deliberation Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Court of Minds</h1>
+            <p class="subtitle">Multi-Model AI Deliberation Platform</p>
+        </header>
+
+        <main>
+            <!-- Query Submission Section -->
+            <section id="query-section" class="card">
+                <h2>Submit Query</h2>
+                
+                <!-- Mode Selection -->
+                <div class="form-group">
+                    <label>Mode:</label>
+                    <div class="mode-selector">
+                        <label class="radio-label">
+                            <input type="radio" name="mode" value="single" id="mode-single">
+                            <span>Single Model</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="mode" value="multi" id="mode-multi" checked>
+                            <span>Multi-Model Deliberation</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Model Selection (for multi-model mode) -->
+                <div class="form-group" id="model-selection-group">
+                    <label>Select Models:</label>
+                    <div id="model-list" class="model-list">
+                        <p class="loading">Loading available models...</p>
+                    </div>
+                </div>
+
+                <!-- Single Model Selection -->
+                <div class="form-group" id="single-model-group" style="display: none;">
+                    <label for="single-model-select">Select Model:</label>
+                    <select id="single-model-select" class="model-select">
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+
+                <!-- Query Input -->
+                <div class="form-group">
+                    <label for="query-input">Your Question:</label>
+                    <textarea 
+                        id="query-input" 
+                        class="query-input" 
+                        placeholder="Enter your question or problem to be deliberated..."
+                        rows="4"
+                    ></textarea>
+                    <div class="input-hint">Ask any question you'd like multiple AI models to deliberate on.</div>
+                </div>
+
+                <!-- Submit Button -->
+                <button id="submit-btn" class="btn btn-primary">
+                    Submit Query
+                </button>
+
+                <!-- Error Display -->
+                <div id="error-message" class="error-message" style="display: none;"></div>
+            </section>
+
+            <!-- Session Progress Section -->
+            <section id="progress-section" class="card" style="display: none;">
+                <h2>Session Progress</h2>
+                <div id="progress-content">
+                    <!-- Progress will be dynamically inserted here -->
+                </div>
+            </section>
+
+            <!-- Session History Section -->
+            <section id="history-section" class="card">
+                <h2>Session History</h2>
+                
+                <!-- Filters -->
+                <div class="history-filters">
+                    <input 
+                        type="text" 
+                        id="history-search" 
+                        class="search-input" 
+                        placeholder="Search sessions..."
+                    >
+                    <select id="history-mode-filter" class="filter-select">
+                        <option value="">All Modes</option>
+                        <option value="single">Single Model</option>
+                        <option value="multi">Multi-Model</option>
+                    </select>
+                    <select id="history-status-filter" class="filter-select">
+                        <option value="">All Statuses</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+
+                <!-- Session List -->
+                <div id="session-list" class="session-list">
+                    <p class="loading">Loading session history...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Session Detail Modal -->
+    <div id="session-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <div id="session-detail">
+                <!-- Session details will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
