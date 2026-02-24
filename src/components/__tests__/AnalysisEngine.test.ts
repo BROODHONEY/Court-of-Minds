@@ -4,8 +4,8 @@
  * Tests specific examples, edge cases, and error conditions for the AnalysisEngine component.
  */
 
-import { AnalysisEngine } from './AnalysisEngine';
-import { ModelResponse } from '../models/types';
+import { AnalysisEngine } from '../AnalysisEngine';
+import { ModelResponse } from '../../models/types';
 
 describe('AnalysisEngine', () => {
   let engine: AnalysisEngine;

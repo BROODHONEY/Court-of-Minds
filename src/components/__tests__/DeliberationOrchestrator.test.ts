@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { DeliberationOrchestrator } from './DeliberationOrchestrator.js';
-import { InMemorySessionStore } from './SessionStore.js';
-import type { Query, Model, ModelAdapter, ModelResponse, ModelInfo, Context } from '../models/types.js';
+import { DeliberationOrchestrator } from '../DeliberationOrchestrator.js';
+import { InMemorySessionStore } from '../SessionStore.js';
+import type { Query, Model, ModelAdapter, ModelResponse, ModelInfo, Context } from '../../models/types.js';
 
 // Mock model adapter for testing
 class MockModelAdapter implements ModelAdapter {

@@ -6,8 +6,8 @@
  */
 
 import * as fc from 'fast-check';
-import { InMemorySessionStore } from './SessionStore.js';
-import type { Query } from '../models/types.js';
+import { InMemorySessionStore } from '../SessionStore.js';
+import type { Query } from '../../models/types.js';
 
 describe('SessionStore Property Tests', () => {
   // Feature: ai-court-system, Property 24: Session identifier uniqueness

@@ -6,8 +6,8 @@
  * Set SKIP_PG_TESTS=true to skip these tests.
  */
 
-import { PostgresSessionStore } from './SessionStore.js';
-import type { Query, SessionUpdate } from '../models/types.js';
+import { PostgresSessionStore } from '../SessionStore.js';
+import type { Query, SessionUpdate } from '../../models/types.js';
 
 const shouldSkip = process.env.SKIP_PG_TESTS === 'true' || !process.env.TEST_DB_HOST;
 

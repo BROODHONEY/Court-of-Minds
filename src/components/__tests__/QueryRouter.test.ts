@@ -5,10 +5,10 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { QueryRouter, QueryHandler } from './QueryRouter.js';
-import { ModelRegistry } from './ModelRegistry.js';
-import { InMemorySessionStore } from './SessionStore.js';
-import type { Query, Model, SessionResult, ModelConfig } from '../models/types.js';
+import { QueryRouter, QueryHandler } from '../QueryRouter.js';
+import { ModelRegistry } from '../ModelRegistry.js';
+import { InMemorySessionStore } from '../SessionStore.js';
+import type { Query, Model, SessionResult, ModelConfig } from '../../models/types.js';
 
 // Mock query handler for testing
 class MockQueryHandler implements QueryHandler {

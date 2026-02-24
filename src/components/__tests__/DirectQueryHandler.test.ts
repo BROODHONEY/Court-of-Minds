@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { DirectQueryHandler } from './DirectQueryHandler.js';
-import { InMemorySessionStore } from './SessionStore.js';
-import type { Query, Model, ModelAdapter, ModelResponse, ModelInfo } from '../models/types.js';
+import { DirectQueryHandler } from '../DirectQueryHandler.js';
+import { InMemorySessionStore } from '../SessionStore.js';
+import type { Query, Model, ModelAdapter, ModelResponse, ModelInfo } from '../../models/types.js';
 
 // Mock model adapter for testing
 class MockModelAdapter implements ModelAdapter {

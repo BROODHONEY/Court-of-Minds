@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { ConsensusBuilder } from './ConsensusBuilder.js';
+import { ConsensusBuilder } from '../ConsensusBuilder.js';
 import {
   Query,
   DebateResult,
@@ -15,7 +15,7 @@ import {
   ModelResponse,
   ModelInfo,
   Context
-} from '../models/types.js';
+} from '../../models/types.js';
 
 /**
  * Mock model adapter for testing

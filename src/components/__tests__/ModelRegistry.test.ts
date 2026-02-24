@@ -4,8 +4,8 @@
  * Tests for model registration, retrieval, health checks, and enable/disable operations
  */
 
-import { ModelRegistry } from './ModelRegistry.js';
-import type { ModelConfig } from '../models/types.js';
+import { ModelRegistry } from '../ModelRegistry.js';
+import type { ModelConfig } from '../../models/types.js';
 
 describe('ModelRegistry', () => {
   let registry: ModelRegistry;

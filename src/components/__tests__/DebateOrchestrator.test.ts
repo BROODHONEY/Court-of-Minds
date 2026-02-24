@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { DebateOrchestrator } from './DebateOrchestrator.js';
+import { DebateOrchestrator } from '../DebateOrchestrator.js';
 import type {
   Query,
   ModelResponse,
@@ -13,7 +13,7 @@ import type {
   Model,
   ModelAdapter,
   Context
-} from '../models/types.js';
+} from '../../models/types.js';
 
 /**
  * Create a mock model adapter for testing

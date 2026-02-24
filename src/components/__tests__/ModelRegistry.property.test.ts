@@ -9,8 +9,8 @@
  */
 
 import * as fc from 'fast-check';
-import { ModelRegistry } from './ModelRegistry.js';
-import type { ModelConfig } from '../models/types.js';
+import { ModelRegistry } from '../ModelRegistry.js';
+import type { ModelConfig } from '../../models/types.js';
 
 describe('ModelRegistry - Property-Based Tests', () => {
   describe('Property 31: API credentials requirement', () => {

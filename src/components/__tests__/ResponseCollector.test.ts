@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { ResponseCollector } from './ResponseCollector.js';
-import type { Query, Model, ModelAdapter, ModelResponse } from '../models/types.js';
+import { ResponseCollector } from '../ResponseCollector.js';
+import type { Query, Model, ModelAdapter, ModelResponse } from '../../models/types.js';
 
 // Mock adapter factory
 function createMockAdapter(
