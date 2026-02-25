@@ -100,7 +100,7 @@ export interface ModelConfig {
   /** Unique identifier for the model */
   id: string;
   /** Provider name (openai, anthropic, google, custom) */
-  provider: 'openai' | 'anthropic' | 'google' | 'custom';
+  provider: 'openai' | 'anthropic' | 'google' | 'groq' | 'huggingface' | 'custom';
   /** API key for authentication */
   apiKey: string;
   /** Specific model name (e.g., gpt-4, claude-3-opus) */

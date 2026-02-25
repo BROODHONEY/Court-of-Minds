@@ -11,7 +11,7 @@
  */
 
 import type { Model, ModelConfig, HealthStatus, ModelAdapter } from '../models/types.js';
-import { OpenAIAdapter, AnthropicAdapter, GoogleAdapter, BaseModelAdapter } from '../adapters/index.js';
+import { OpenAIAdapter, AnthropicAdapter, GoogleAdapter, BaseModelAdapter, GroqAdapter, HuggingFaceAdapter } from '../adapters/index.js';
 
 /**
  * Custom adapter for extensibility
@@ -108,6 +108,29 @@ export class ModelRegistry {
           timeout: config.timeout * 1000,
         });
         break;
+
+      case 'groq':
+        adapter = new GroqAdapter({
+          modelId: config.id,
+          apiKey: config.apiKey,
+          modelName: config.modelName,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+          timeout: config.timeout * 1000,
+        });
+        break;
+
+      case 'huggingface':
+        adapter = new HuggingFaceAdapter({
+          modelId: config.id,
+          apiKey: config.apiKey,
+          modelName: config.modelName,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+          timeout: config.timeout * 1000,
+        });
+        break;
+
       
       case 'custom':
         adapter = new CustomAdapter(config.id, config.timeout * 1000);

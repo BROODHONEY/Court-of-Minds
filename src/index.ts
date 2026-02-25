@@ -192,6 +192,58 @@ function initializeModelRegistry(): ModelRegistry {
     }
   }
 
+  
+// Register Groq models if API key is provided
+if (process.env.GROQ_API_KEY) {
+  try {
+    const groqModels = process.env.GROQ_MODELS?.split(',') || ['llama-3.1-70b-versatile'];
+    
+    groqModels.forEach((modelName) => {
+      const modelId = `groq-${modelName.split('/').pop()}`;
+      const groqConfig: ModelConfig = {
+        id: modelId,
+        provider: 'groq',
+        apiKey: process.env.GROQ_API_KEY!,
+        modelName: modelName.trim(),
+        enabled: true,
+        maxTokens: parseInt(process.env.MODEL_MAX_TOKENS || '2000'),
+        temperature: parseFloat(process.env.MODEL_TEMPERATURE || '0.7'),
+        timeout: parseInt(process.env.MODEL_TIMEOUT || '30'),
+      };
+      registry.registerModel(groqConfig);
+      console.log(`✓ Registered Groq ${modelName}`);
+    });
+  } catch (error) {
+    console.error('Failed to register Groq models:', error);
+  }
+}
+
+// Register Hugging Face models if API key is provided
+if (process.env.HUGGINGFACE_API_KEY) {
+  try {
+    const hfModels = process.env.HUGGINGFACE_MODELS?.split(',') || ['meta-llama/Llama-2-70b-chat-hf'];
+    
+    hfModels.forEach((modelName) => {
+      const modelId = `hf-${modelName.split('/').pop()}`;
+      const hfConfig: ModelConfig = {
+        id: modelId,
+        provider: 'huggingface',
+        apiKey: process.env.HUGGINGFACE_API_KEY!,
+        modelName: modelName.trim(),
+        enabled: true,
+        maxTokens: parseInt(process.env.MODEL_MAX_TOKENS || '2000'),
+        temperature: parseFloat(process.env.MODEL_TEMPERATURE || '0.7'),
+        timeout: parseInt(process.env.MODEL_TIMEOUT || '60'), // HF can be slower
+      };
+      registry.registerModel(hfConfig);
+      console.log(`✓ Registered Hugging Face ${modelName}`);
+    });
+  } catch (error) {
+    console.error('Failed to register Hugging Face models:', error);
+  }
+}
+
+
   const modelCount = registry.getModelCount();
   const enabledCount = registry.getEnabledModelCount();
 
