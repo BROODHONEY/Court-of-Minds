@@ -39,8 +39,11 @@ export class AnthropicAdapter extends BaseModelAdapter {
 
     // Add context as system message if provided
     let systemPrompt = '';
+    if (context?.systemMessage) {
+      systemPrompt = context.systemMessage + '\n\n';
+    }
     if (context) {
-      systemPrompt = this.formatContext(context);
+      systemPrompt += this.formatContext(context);
     }
 
     // Add the main prompt
@@ -53,7 +56,7 @@ export class AnthropicAdapter extends BaseModelAdapter {
     const requestBody: any = {
       model: this.modelName,
       messages,
-      max_tokens: this.maxTokens,
+      max_tokens: context?.maxTokens || this.maxTokens,
       temperature: this.temperature,
     };
 

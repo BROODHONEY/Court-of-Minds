@@ -398,22 +398,17 @@ export class AnalysisEngine implements IAnalysisEngine {
   ): string {
     const parts: string[] = [];
     
-    // Summary of responses
-    parts.push(`Analyzed ${responses.length} model response${responses.length !== 1 ? 's' : ''}.`);
-    
     // Common themes
     if (themes.length > 0) {
-      parts.push(`Found ${themes.length} common theme${themes.length !== 1 ? 's' : ''} across responses.`);
+      parts.push(`${themes.length} common theme${themes.length !== 1 ? 's' : ''} identified.`);
     } else {
-      parts.push('No significant common themes identified.');
+      parts.push('No common themes.');
     }
     
     // Unique approaches
     const methodologies = new Set(approaches.map(a => a.methodology));
     if (methodologies.size > 1) {
-      parts.push(`Models employed ${methodologies.size} different methodologies: ${Array.from(methodologies).join(', ')}.`);
-    } else {
-      parts.push(`All models used a ${approaches[0]?.methodology || 'similar'} approach.`);
+      parts.push(`${methodologies.size} methodologies: ${Array.from(methodologies).join(', ')}.`);
     }
     
     // Differences
@@ -427,9 +422,9 @@ export class AnalysisEngine implements IAnalysisEngine {
         .map(([type, count]) => `${count} ${type}`)
         .join(', ');
       
-      parts.push(`Identified ${differences.length} difference${differences.length !== 1 ? 's' : ''}: ${diffSummary}.`);
+      parts.push(`Differences: ${diffSummary}.`);
     } else {
-      parts.push('Models show strong agreement with minimal differences.');
+      parts.push('Strong agreement.');
     }
     
     return parts.join(' ');

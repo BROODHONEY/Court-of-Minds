@@ -1,13 +1,3 @@
-/**
- * Debate Orchestrator Component
- * 
- * Manages structured debate rounds between models.
- * Conducts 1-5 debate rounds, presents context to models, parses exchanges,
- * calculates disagreement levels, and implements early termination on convergence.
- * 
- * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 7.3, 9.2, 9.5
- */
-
 import {
   ModelResponse,
   AnalysisReport,
@@ -40,7 +30,7 @@ const DEFAULT_CONFIG: DebateConfig = {
   minRounds: 1,
   maxRounds: 5,
   convergenceThreshold: 0.2,
-  maxTokens: 500
+  maxTokens: 300
 };
 
 /**
@@ -59,8 +49,16 @@ export interface IDebateOrchestrator {
  * Parse a debate response into structured exchange components
  */
 function parseDebateResponse(responseText: string, modelId: string): DebateExchange {
-  const lines = responseText.split('\n');
+  // Strip markdown formatting
+  let cleanedText = responseText
+    .replace(/###\s*/g, '')           // Remove ### headers
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove **bold**
+    .replace(/^\s*[-*•]\s+/gm, '')     // Remove bullet points
+    .replace(/^\s*\d+\.\s+/gm, '');    // Remove numbered lists
   
+  const lines = cleanedText.split('\n');
+  
+  let strength = '';
   let critique = '';
   let defense = '';
   let revisedPosition: string | undefined;
@@ -75,7 +73,7 @@ function parseDebateResponse(responseText: string, modelId: string): DebateExcha
     if (upper.startsWith('STRENGTHS:') || upper.startsWith('STRENGTH:')) {
       currentSection = 'strengths';
       const content = trimmed.substring(trimmed.indexOf(':') + 1).trim();
-      if (content) critique += content + '\n';
+      if (content) strength += content + '\n';
       continue;
     } else if (upper.startsWith('WEAKNESSES:') || upper.startsWith('WEAKNESS:')) {
       currentSection = 'weaknesses';
@@ -98,6 +96,8 @@ function parseDebateResponse(responseText: string, modelId: string): DebateExcha
     if (trimmed) {
       switch (currentSection) {
         case 'strengths':
+          strength += trimmed + '\n';
+          break;
         case 'weaknesses':
           critique += trimmed + '\n';
           break;
@@ -113,7 +113,15 @@ function parseDebateResponse(responseText: string, modelId: string): DebateExcha
   
   // Fallback: if parsing failed, use entire response as critique
   if (!critique && !defense && !revisedPosition) {
-    critique = responseText;
+    critique = cleanedText;
+  }
+  
+  // Enforce length limits (truncate if too long)
+  const maxLength = 500;
+  if (critique.length > maxLength) critique = critique.substring(0, maxLength) + '...';
+  if (defense.length > maxLength) defense = defense.substring(0, maxLength) + '...';
+  if (revisedPosition && revisedPosition.length > maxLength) {
+    revisedPosition = revisedPosition.substring(0, maxLength) + '...';
   }
   
   return {
@@ -197,52 +205,49 @@ function formatDebatePrompt(
   analysis: AnalysisReport,
   previousRounds?: DebateRound[]
 ): string {
-  let prompt = `Round ${roundNumber} of Debate:\n\n`;
+  let prompt = `Debate Round ${roundNumber}\n\n`;
   
-  prompt += `Original Query: ${query.text}\n\n`;
+  prompt += `Query: ${query.text}\n\n`;
   
-  prompt += `Your Original Response: ${originalResponse.text}\n\n`;
+  prompt += `Your Response: ${originalResponse.text}\n\n`;
   
   prompt += `Other Responses:\n`;
   otherResponses.forEach(response => {
-    prompt += `- Model ${response.modelId}: ${response.text}\n`;
+    // Truncate long responses to keep prompt focused
+    const truncated = response.text.length > 300 ? response.text.substring(0, 300) + '...' : response.text;
+    prompt += `- ${response.modelId}: ${truncated}\n`;
   });
   prompt += '\n';
   
-  prompt += `Analysis Report: ${analysis.summary}\n`;
-  if (analysis.commonThemes.length > 0) {
-    prompt += `Common Themes: ${analysis.commonThemes.map(t => t.description).join(', ')}\n`;
-  }
+  // Only show key analysis points
   if (analysis.differences.length > 0) {
-    prompt += `Key Differences: ${analysis.differences.map(d => `${d.type} (${d.involvedModels.join(', ')})`).join('; ')}\n`;
+    prompt += `Key Differences: ${analysis.differences.slice(0, 3).map(d => d.type).join(', ')}\n\n`;
   }
-  prompt += '\n';
   
+  // Only show most recent round if available
   if (previousRounds && previousRounds.length > 0) {
-    prompt += `Previous Debate:\n`;
-    previousRounds.forEach(round => {
-      prompt += `Round ${round.roundNumber}:\n`;
-      round.exchanges.forEach(exchange => {
-        prompt += `  ${exchange.modelId}:\n`;
-        if (exchange.critique) prompt += `    Critique: ${exchange.critique.substring(0, 200)}...\n`;
-        if (exchange.defense) prompt += `    Defense: ${exchange.defense.substring(0, 200)}...\n`;
-        if (exchange.revisedPosition) prompt += `    Revised: ${exchange.revisedPosition.substring(0, 200)}...\n`;
-      });
+    const lastRound = previousRounds[previousRounds.length - 1];
+    prompt += `Previous Round:\n`;
+    lastRound.exchanges.forEach(exchange => {
+      if (exchange.revisedPosition) {
+        const truncated = exchange.revisedPosition.length > 150 ? exchange.revisedPosition.substring(0, 150) + '...' : exchange.revisedPosition;
+        prompt += `  ${exchange.modelId}: ${truncated}\n`;
+      }
     });
     prompt += '\n';
   }
   
-  prompt += `Instructions:
-1. Identify specific strengths in other responses
-2. Identify specific weaknesses or flaws in other responses
-3. Defend your approach or acknowledge valid criticisms
-4. Revise your position if warranted
+  prompt += `CRITICAL INSTRUCTIONS:
+- NO markdown formatting (no ###, **, -, bullets)
+- NO numbered lists or subsections
+- Maximum 2-3 sentences per section
+- Be direct and specific, not verbose
 
-Provide your response in this format:
-STRENGTHS: ...
-WEAKNESSES: ...
-DEFENSE: ...
-REVISED_POSITION: ...`;
+Required format (plain text only):
+STRENGTHS: [1-2 specific strengths in 2-3 sentences]
+WEAKNESSES: [1-2 critical flaws in 2-3 sentences]
+DEFENSE: [Your defense or acknowledgment in 2-3 sentences]
+REVISED_POSITION: [Your concise answer to the query in 3-4 sentences max]`;
   
   return prompt;
 }
@@ -446,24 +451,29 @@ export class DebateOrchestrator implements IDebateOrchestrator {
         );
         
         // Request debate response with token limit (Requirement 7.3: 500 tokens)
+        // Add stricter limit for verbose models
+        const tokenLimit = Math.min(this.config.maxTokens, 300); // Further reduced for efficiency
+        
         const context = {
           previousResponses: otherResponses,
           analysisReport: analysis,
-          debateHistory: previousRounds
+          debateHistory: previousRounds,
+          systemMessage: 'CRITICAL: Maximum 300 tokens. Be extremely concise. No markdown, bullets, or lists. Plain text only. 2 sentences per section maximum.',
+          maxTokens: tokenLimit
         };
         
         const response = await model.adapter.generateResponse(prompt, context);
         
         // Enforce token limit
-        if (response.tokens > this.config.maxTokens) {
+        if (response.tokens > tokenLimit) {
           errorLogger.logWarning(
             'DebateOrchestrator',
-            `Model ${model.id} exceeded token limit: ${response.tokens} > ${this.config.maxTokens}`,
+            `Model ${model.id} exceeded token limit: ${response.tokens} > ${tokenLimit}`,
             {
               roundNumber,
               modelId: model.id,
               tokens: response.tokens,
-              maxTokens: this.config.maxTokens,
+              maxTokens: tokenLimit,
             },
             undefined,
             model.id

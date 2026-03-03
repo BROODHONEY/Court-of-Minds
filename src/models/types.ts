@@ -171,6 +171,10 @@ export interface Context {
   analysisReport?: AnalysisReport;
   /** Debate history (for consensus phase) */
   debateHistory?: DebateRound[];
+  /** System message with formatting instructions */
+  systemMessage?: string;
+  /** Maximum tokens for this specific request (overrides model default) */
+  maxTokens?: number;
 }
 
 /**

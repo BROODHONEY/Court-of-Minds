@@ -37,6 +37,14 @@ export class OpenAIAdapter extends BaseModelAdapter {
     // Build messages array
     const messages: Array<{ role: string; content: string }> = [];
 
+    // Add system message for formatting instructions
+    if (context?.systemMessage) {
+      messages.push({
+        role: 'system',
+        content: context.systemMessage,
+      });
+    }
+
     // Add context if provided
     if (context) {
       if (context.previousResponses && context.previousResponses.length > 0) {
@@ -64,7 +72,7 @@ export class OpenAIAdapter extends BaseModelAdapter {
       body: JSON.stringify({
         model: this.modelName,
         messages,
-        max_tokens: this.maxTokens,
+        max_tokens: context?.maxTokens || this.maxTokens,
         temperature: this.temperature,
       }),
     });

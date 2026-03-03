@@ -37,6 +37,11 @@ export class GoogleAdapter extends BaseModelAdapter {
     // Build the full prompt with context
     let fullPrompt = '';
     
+    // Add system message for formatting instructions
+    if (context?.systemMessage) {
+      fullPrompt += context.systemMessage + '\n\n';
+    }
+    
     if (context) {
       const contextText = this.formatContext(context);
       if (contextText) {
@@ -62,7 +67,7 @@ export class GoogleAdapter extends BaseModelAdapter {
         }],
         generationConfig: {
           temperature: this.temperature,
-          maxOutputTokens: this.maxTokens,
+          maxOutputTokens: context?.maxTokens || this.maxTokens,
         },
       }),
     });

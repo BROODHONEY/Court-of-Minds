@@ -63,7 +63,7 @@ export class HuggingFaceAdapter extends BaseModelAdapter {
       body: JSON.stringify({
         inputs: fullPrompt,
         parameters: {
-          max_new_tokens: this.maxTokens,
+          max_new_tokens: context?.maxTokens || this.maxTokens,
           temperature: this.temperature,
           return_full_text: false,
         },

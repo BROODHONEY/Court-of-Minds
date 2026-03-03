@@ -36,6 +36,14 @@ export class GroqAdapter extends BaseModelAdapter {
     // Build messages array (Groq uses OpenAI-compatible API)
     const messages: Array<{ role: string; content: string }> = [];
 
+    // Add system message for formatting instructions
+    if (context?.systemMessage) {
+      messages.push({
+        role: 'system',
+        content: context.systemMessage,
+      });
+    }
+
     // Add context if provided
     if (context) {
       const contextText = this.formatContext(context);
@@ -63,7 +71,7 @@ export class GroqAdapter extends BaseModelAdapter {
       body: JSON.stringify({
         model: this.modelName,
         messages,
-        max_tokens: this.maxTokens,
+        max_tokens: context?.maxTokens || this.maxTokens,
         temperature: this.temperature,
       }),
     });

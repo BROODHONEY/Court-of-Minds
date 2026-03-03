@@ -1,12 +1,3 @@
-/**
- * Consensus Builder Component
- * 
- * Facilitates agreement on a final solution among models.
- * Collects final proposals, analyzes similarity, identifies majority agreement,
- * synthesizes hybrid solutions when needed, and generates rationale.
- * 
- * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 7.4, 9.5
- */
 
 import {
   Model,
@@ -96,37 +87,33 @@ function formatConsensusPrompt(
   query: Query,
   debate: DebateResult
 ): string {
-  let prompt = `Final Consensus Round:\n\n`;
+  let prompt = `Final Consensus\n\n`;
   
-  prompt += `Original Query: ${query.text}\n\n`;
+  prompt += `Query: ${query.text}\n\n`;
   
-  prompt += `Debate Summary:\n`;
-  prompt += `- Total rounds: ${debate.rounds.length}\n`;
-  prompt += `- Convergence score: ${debate.convergenceScore.toFixed(2)}\n\n`;
+  prompt += `Debate: ${debate.rounds.length} rounds, convergence ${(debate.convergenceScore * 100).toFixed(0)}%\n\n`;
   
-  prompt += `Debate History:\n`;
-  debate.rounds.forEach(round => {
-    prompt += `Round ${round.roundNumber} (disagreement: ${round.disagreementLevel.toFixed(2)}):\n`;
-    round.exchanges.forEach(exchange => {
-      if (exchange.revisedPosition) {
-        prompt += `  ${exchange.modelId}: ${exchange.revisedPosition.substring(0, 150)}...\n`;
-      } else if (exchange.defense) {
-        prompt += `  ${exchange.modelId}: ${exchange.defense.substring(0, 150)}...\n`;
-      }
+  // Show only the final round positions
+  const finalRound = debate.rounds[debate.rounds.length - 1];
+  if (finalRound) {
+    prompt += `Final Positions:\n`;
+    finalRound.exchanges.forEach(exchange => {
+      const position = exchange.revisedPosition || exchange.defense || exchange.critique;
+      const truncated = position.length > 200 ? position.substring(0, 200) + '...' : position;
+      prompt += `- ${exchange.modelId}: ${truncated}\n`;
     });
-  });
-  prompt += '\n';
+    prompt += '\n';
+  }
   
-  prompt += `Instructions:
-Based on the complete debate, provide your final proposed solution.
-Your proposal should:
-1. Incorporate valid insights from other models
-2. Address weaknesses identified during debate
-3. Represent your best answer to the original query
+  prompt += `CRITICAL INSTRUCTIONS:
+- NO markdown formatting (no ###, **, -, bullets)
+- NO numbered lists or elaborate explanations
+- Maximum 4-5 sentences for solution
+- Be direct and actionable, not philosophical
 
-Format your response as:
-FINAL_SOLUTION: [Your complete solution]
-INCORPORATED_INSIGHTS: [List key insights from other models that you incorporated]`;
+Required format (plain text only):
+FINAL_SOLUTION: [Direct answer in 4-5 sentences max - no preamble, no fluff]
+INCORPORATED_INSIGHTS: [List 2-3 insights as simple comma-separated phrases]`;
   
   return prompt;
 }
@@ -135,7 +122,14 @@ INCORPORATED_INSIGHTS: [List key insights from other models that you incorporate
  * Parse a consensus response into a proposal
  */
 function parseConsensusResponse(responseText: string, modelId: string): Proposal {
-  const lines = responseText.split('\n');
+  // Strip markdown formatting
+  let cleanedText = responseText
+    .replace(/###\s*/g, '')           // Remove ### headers
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove **bold**
+    .replace(/^\s*[-*•]\s+/gm, '')     // Remove bullet points
+    .replace(/^\s*\d+\.\s+/gm, '');    // Remove numbered lists
+  
+  const lines = cleanedText.split('\n');
   
   let solution = '';
   let insights: string[] = [];
@@ -168,6 +162,9 @@ function parseConsensusResponse(responseText: string, modelId: string): Proposal
           // Split by common delimiters
           if (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.startsWith('*')) {
             insights.push(trimmed.substring(1).trim());
+          } else if (trimmed.includes(',')) {
+            // Handle comma-separated insights
+            insights.push(...trimmed.split(',').map(i => i.trim()));
           } else {
             insights.push(trimmed);
           }
@@ -178,8 +175,19 @@ function parseConsensusResponse(responseText: string, modelId: string): Proposal
   
   // Fallback: if parsing failed, use entire response as solution
   if (!solution) {
-    solution = responseText;
+    solution = cleanedText;
   }
+  
+  // Enforce length limits
+  const maxSolutionLength = 800;
+  if (solution.length > maxSolutionLength) {
+    solution = solution.substring(0, maxSolutionLength) + '...';
+  }
+  
+  // Limit insights to 3 and truncate long ones
+  insights = insights.slice(0, 3).map(i => 
+    i.length > 150 ? i.substring(0, 150) + '...' : i
+  );
   
   return {
     modelId,
@@ -310,15 +318,15 @@ function synthesizeHybrid(proposals: Proposal[]): string {
  * Format validation prompt for hybrid solution
  */
 function formatValidationPrompt(query: Query, hybridSolution: string): string {
-  return `Please validate the following proposed solution to the query.
+  return `Validate this solution. Be critical and honest.
 
-Original Query: ${query.text}
+Query: ${query.text}
 
-Proposed Solution: ${hybridSolution}
+Solution: ${hybridSolution}
 
-Does this solution adequately address the query? Respond with:
-YES - if the solution is acceptable
-NO - if the solution has significant issues
+Does this solution directly and adequately answer the query?
+- YES if it's clear, specific, and actionable
+- NO if it's vague, incomplete, or doesn't address the query
 
 Response: `;
 }
@@ -335,17 +343,6 @@ export class ConsensusBuilder implements IConsensusBuilder {
   
   /**
    * Build consensus among models on a final solution
-   * 
-   * Validates Requirements:
-   * - 5.1: Facilitates agreement on final solution
-   * - 5.2: Presents all debate arguments to all models
-   * - 5.3: Requires each model to propose final solution incorporating insights
-   * - 5.4: Identifies solution with highest agreement
-   * - 5.5: Synthesizes hybrid solution if no majority
-   * - 5.6: Presents final solution with supporting rationale
-   * - 7.4: Completes within 60 seconds
-   * - 9.5: Logs detailed error information
-   * 
    * @param query The original user query
    * @param debate Debate results from DebateOrchestrator
    * @param models Array of models participating in consensus
@@ -425,13 +422,13 @@ export class ConsensusBuilder implements IConsensusBuilder {
     models: Model[],
     startTime: number
   ): Promise<ConsensusResult> {
-    // Step 1: Collect final proposals from all models (Requirements 5.1, 5.2, 5.3)
+    // Step 1: Collect final proposals from all models
     const proposals = await this.collectProposals(query, debate, models);
     
     // Step 2: Compute pairwise similarity scores and cluster proposals
     const clusters = clusterProposals(proposals, this.config.similarityThreshold);
     
-    // Step 3: Identify majority agreement (Requirement 5.4)
+    // Step 3: Identify majority agreement
     const largestCluster = this.findLargestCluster(clusters);
     const agreementLevel = largestCluster.length / proposals.length;
     
@@ -503,7 +500,9 @@ export class ConsensusBuilder implements IConsensusBuilder {
     const proposalPromises = models.map(async (model) => {
       try {
         const context = {
-          debateHistory: debate.rounds
+          debateHistory: debate.rounds,
+          systemMessage: 'CRITICAL: Maximum 400 tokens. Be extremely concise. No markdown, bullets, or lists. Plain text only. 3-4 sentences maximum.',
+          maxTokens: 400
         };
         
         const response = await model.adapter.generateResponse(prompt, context);
@@ -607,20 +606,9 @@ export class ConsensusBuilder implements IConsensusBuilder {
     agreementLevel: number
   ): string {
     const percentage = (agreementLevel * 100).toFixed(0);
-    const modelIds = cluster.map(p => p.modelId).join(', ');
-    
-    let rationale = `Consensus reached through majority agreement. `;
-    rationale += `${cluster.length} out of ${totalProposals} models (${percentage}%) `;
-    rationale += `converged on a similar solution. `;
-    rationale += `Supporting models: ${modelIds}. `;
-    
-    // Add insight summary
     const totalInsights = cluster.reduce((sum, p) => sum + p.insights.length, 0);
-    if (totalInsights > 0) {
-      rationale += `The solution incorporates ${totalInsights} key insights from the debate.`;
-    }
     
-    return rationale;
+    return `${percentage}% agreement (${cluster.length}/${totalProposals} models). ${totalInsights > 0 ? `Incorporates ${totalInsights} key insights.` : ''}`;
   }
   
   /**
@@ -633,19 +621,9 @@ export class ConsensusBuilder implements IConsensusBuilder {
     totalModels: number
   ): string {
     const percentage = ((approvalCount / totalModels) * 100).toFixed(0);
-    
-    let rationale = `Consensus reached through hybrid synthesis. `;
-    rationale += `No single solution achieved majority agreement (${clusterCount} distinct approaches identified). `;
-    rationale += `A hybrid solution was synthesized by combining common elements from all proposals. `;
-    rationale += `The hybrid solution was validated and approved by ${approvalCount} out of ${totalModels} models (${percentage}%). `;
-    
-    // Add insight summary
     const totalInsights = proposals.reduce((sum, p) => sum + p.insights.length, 0);
-    if (totalInsights > 0) {
-      rationale += `The solution incorporates ${totalInsights} insights from across all models.`;
-    }
     
-    return rationale;
+    return `Hybrid solution (${clusterCount} approaches merged). Validated by ${percentage}% of models (${approvalCount}/${totalModels}). ${totalInsights > 0 ? `Incorporates ${totalInsights} insights.` : ''}`;
   }
   
   /**
